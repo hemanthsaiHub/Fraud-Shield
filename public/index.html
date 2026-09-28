@@ -1,0 +1,36 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FraudShield</title><style>
+body{font-family:system-ui,sans-serif;margin:0;background:#0f172a;color:#e2e8f0}
+main{max-width:1000px;margin:auto;padding:20px}h1{margin:0 0 4px}small{color:#94a3b8}
+.g{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}@media(max-width:760px){.g{grid-template-columns:1fr}}
+.c{background:#1e293b;border-radius:12px;padding:16px}label{display:block;font-size:13px;margin-top:8px;color:#94a3b8}
+input{width:100%;padding:7px;border-radius:6px;border:1px solid #334155;background:#0f172a;color:#e2e8f0;box-sizing:border-box}
+button{margin-top:12px;padding:9px 14px;border:0;border-radius:8px;background:#38bdf8;color:#0f172a;font-weight:600;cursor:pointer}
+.r{font-size:42px;font-weight:700}.HIGH{color:#f87171}.MEDIUM{color:#fbbf24}.LOW{color:#4ade80}
+table{width:100%;border-collapse:collapse;font-size:13px}td,th{padding:5px;text-align:left;border-bottom:1px solid #334155}
+</style></head><body><main>
+<h1>🛡️ FraudShield</h1><small id="m">Real-time fraud scoring with explainable AI</small>
+<div class="g"><div class="c"><b>Check a transaction</b>
+<label>Amount<input id="amount" type="number" value="1800"></label>
+<label>Hour (0-23)<input id="hour" type="number" value="3"></label>
+<label>Distance from home (km)<input id="distance_km" type="number" value="400"></label>
+<label>Transactions in last hour<input id="txn_last_hour" type="number" value="5"></label>
+<label>New device (0/1)<input id="new_device" type="number" value="1"></label>
+<label>Amount vs user's average (x)<input id="amount_vs_avg" type="number" value="6"></label>
+<label>International (0/1)<input id="international" type="number" value="1"></label>
+<button onclick="check()">Score transaction</button></div>
+<div class="c"><b>Result</b><div id="out"><div class="r">—</div></div></div></div>
+<div class="c" style="margin-top:16px"><b>Live feed</b> <button onclick="toggle()" id="btn">Start simulation</button>
+<span id="stats" style="margin-left:12px"></span>
+<table><thead><tr><th>Amount</th><th>Hour</th><th>Dist</th><th>Risk</th><th>Level</th><th>Reasons</th></tr></thead><tbody id="feed"></tbody></table></div>
+</main><script>
+const ids=["amount","hour","distance_km","txn_last_hour","new_device","amount_vs_avg","international"];let tm=null,n=0,f=0;
+fetch("/api/health").then(r=>r.json()).then(d=>m.textContent=`Model AUC ${d.metrics.auc} · precision ${d.metrics.precision} · recall ${d.metrics.recall}`).catch(()=>{});
+async function check(){const t={};ids.forEach(i=>t[i]=+document.getElementById(i).value);
+const r=await(await fetch("/api/predict",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(t)})).json();
+out.innerHTML=`<div class="r ${r.level}">${(r.risk*100).toFixed(1)}% · ${r.level}</div><p>${r.explanation}</p>`}
+async function tick(){const r=await(await fetch("/api/simulate")).json(),t=r.txn;n++;if(r.level=="HIGH")f++;
+feed.insertAdjacentHTML("afterbegin",`<tr><td>${t.amount}</td><td>${t.hour}</td><td>${t.distance_km}</td><td>${(r.risk*100).toFixed(0)}%</td><td class="${r.level}">${r.level}</td><td>${r.reasons.join(", ")}</td></tr>`);
+if(feed.rows.length>12)feed.deleteRow(-1);stats.textContent=`${n} scanned · ${f} flagged`}
+function toggle(){if(tm){clearInterval(tm);tm=null;btn.textContent="Start simulation"}else{tick();tm=setInterval(tick,1500);btn.textContent="Stop"}}
+</script></body></html>
